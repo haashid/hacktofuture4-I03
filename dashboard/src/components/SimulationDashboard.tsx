@@ -179,17 +179,17 @@ export default function SimulationDashboard() {
           anomaly_score: parsed.model_outputs.validation.anomaly_score 
         },
         seismic: { 
-          event_type: parsed.model_outputs.seismic.prediction, 
-          magnitude: parsed.model_outputs.seismic.is_crisis ? 'high' : 'low' 
+          event_type: parsed.model_outputs.seismic?.prediction || "Unknown", 
+          magnitude: parsed.model_outputs.seismic?.is_crisis ? 'high' : 'low' 
         },
         gas: { 
-          hazard_type: parsed.model_outputs.gas.prediction, 
-          severity: parsed.model_outputs.gas.severity, 
-          current_ppm: parsed.model_outputs.gas.ppm 
+          hazard_type: parsed.model_outputs.gas?.prediction || "Scanning", 
+          severity: parsed.model_outputs.gas?.severity || "Normal", 
+          current_ppm: parsed.model_outputs.gas?.ppm || 0 
         },
         survivor: { 
-          estimated_count: parsed.model_outputs.survivor.count.toString(), 
-          urgency: parsed.model_outputs.survivor.urgency 
+          estimated_count: parsed.model_outputs.survivor?.estimated_count || "Unknown", 
+          urgency: parsed.model_outputs.survivor?.urgency || "Unknown" 
         },
         location: parsed.location
       };

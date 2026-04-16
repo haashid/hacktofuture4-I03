@@ -6,12 +6,20 @@ import 'leaflet/dist/leaflet.css';
 import { useEffect } from 'react';
 
 // Fix for default marker icons in Leaflet with Next.js
-const icon = L.icon({
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-});
+// Custom high-tech marker function
+const createCustomIcon = (isActive: boolean) => {
+  return L.divIcon({
+    className: 'custom-div-icon',
+    html: `
+      <div class="relative flex items-center justify-center">
+        <div class="absolute w-8 h-8 rounded-full ${isActive ? 'bg-rose-500/30 animate-ping' : 'bg-slate-500/10'}"></div>
+        <div class="relative w-3 h-3 rounded-full border-2 ${isActive ? 'bg-rose-500 border-white shadow-[0_0_10px_rgba(244,63,94,0.8)]' : 'bg-slate-600 border-slate-400'}"></div>
+      </div>
+    `,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+  });
+};
 
 interface MapComponentProps {
   nodes: { id: string; name: string; lat: number; lng: number }[];
@@ -37,7 +45,7 @@ export default function MapComponent({ nodes, activeNodeId, onNodeClick }: MapCo
         center={center} 
         zoom={13} 
         scrollWheelZoom={true} 
-        className="w-full h-full grayscale opacity-80 contrast-125"
+        className="w-full h-full opacity-90 contrast-125"
         zoomControl={false}
       >
         <TileLayer
@@ -49,7 +57,7 @@ export default function MapComponent({ nodes, activeNodeId, onNodeClick }: MapCo
           <Marker 
             key={node.id} 
             position={[node.lat, node.lng]} 
-            icon={icon}
+            icon={createCustomIcon(node.id === activeNodeId)}
             eventHandlers={{
               click: () => onNodeClick(node.id),
             }}
