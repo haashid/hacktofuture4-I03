@@ -10,6 +10,7 @@ from urllib.request import Request, urlopen
 from pipeline.graph import run_neuromesh_pipeline
 
 
+# Real-time trigger thresholds aligned with ESP32 sketch.
 ACC_THRESHOLD = 0.25
 GAS_THRESHOLD = 2000
 EARTHQUAKE_DURATION_MS = 10_000
@@ -137,17 +138,27 @@ class FirebaseLiveBridge:
         if not self.dashboard_url:
             return
 
+        acc = self._to_float(node_payload.get('acceleration'), 1.0)
+        event_state = self._compute_event_state(acc)
+
         body = {
             'node_id': self.node_id,
             'lat': self.lat,
             'lng': self.lng,
             'address': self.address,
-            'acceleration_g': self._to_float(node_payload.get('acceleration'), 1.0),
+            'acceleration_g': acc,
             'gas_raw': self._to_int(node_payload.get('gas'), 0),
             'motion': self._to_int(node_payload.get('motion'), 0) > 0,
             'temp_c': self._to_float(node_payload.get('temperature'), 0.0),
             'humidity': self._to_float(node_payload.get('humidity'), 0.0),
             'timestamp': datetime.now(UTC).isoformat(),
+            'aiSitrep': node_payload.get('aiSitrep'),
+            'aiThreatLevel': node_payload.get('aiThreatLevel'),
+            'sensor_alert': str(node_payload.get('alert', 'SAFE')),
+            'sensor_sub_alert': str(node_payload.get('subAlert', '')),
+            'earthquake_active': event_state['earthquake_active'],
+            'event_duration_ms': event_state['event_duration_ms'],
+            'sensor_timestamp': self._to_int(node_payload.get('timestamp'), 0),
         }
 
         api_url = f"{self.dashboard_url}/api/telemetry"
@@ -184,13 +195,24 @@ class FirebaseLiveBridge:
         if not node_payload:
             return False
 
+        # ALWAYS post live telemetry to the dashboard so UI stays in real-time sync with Firebase
+        self._post_dashboard_telemetry(node_payload)
+
+        # But only run the heavy AI pipeline if the hardware transmitted a genuinely new frame
         if not self._is_new_record(node_payload):
             return False
 
-        self._post_dashboard_telemetry(node_payload)
-
         node_report = self._make_node_report(node_payload)
         result = run_neuromesh_pipeline([node_report])
+        
+        # Inject AI SITREP into payload for Dashboard
+        if result.get('pipeline_status') != 'aborted':
+            sitrep = result.get('sitrep', {})
+            if sitrep:
+                node_payload['aiSitrep'] = sitrep.get('full_sitrep')
+                node_payload['aiThreatLevel'] = sitrep.get('threat_level')
+
+        self._post_dashboard_telemetry(node_payload)
         self._write_inference(result)
 
         if result.get('pipeline_status') == 'aborted':
